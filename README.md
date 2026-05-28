@@ -1,4 +1,7 @@
 # Raptor
+
+![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)
+
 Sistema Cognitivo AI Modulare
 
 Raptor è un assistente AI modulare orientato a:
@@ -26,6 +29,7 @@ Raptor è un assistente IA personale progettato come sistema cognitivo modulare 
 * retrieval cognitivo multi-dominio
 * integrazione Telegram
 * input testuale e vocale da Telegram
+* menu cognitivo Telegram generato da registry semantico
 * integrazione Obsidian Vault
 * gestione calendario local-first con preview e conferma
 * stato operativo persistente minimale
@@ -57,9 +61,9 @@ Il progetto utilizza:
 * Pipeline di reranking cognitivo
 * Workflow AI modulari
 * Motore di retrieval semantico
-* System prompt arricchito con identity, orario locale, timelinecognitiva stato operativo
+* System prompt arricchito con identity, orario locale, timeline cognitiva e stato operativo
 
-outing AI Multi-Provider
+Routing AI Multi-Provider
 
 Pipeline AI resiliente:
 
@@ -93,6 +97,7 @@ supporto offline
 
 * Messaggi testuali
 * Messaggi vocali Telegram
+* Menu guidato Raptor OS con categorie, breadcrumb e quick actions
 * Trascrizione vocale con `faster-whisper`
 * Routing unico: testo e vocali passano dagli stessi intent handler
 * Supporto ai follow-up vocali nei workflow attivi
@@ -151,7 +156,7 @@ supporto offline
 
 * Comando Telegram `/audit`
 * OSINT passivo dominio con `/security_osint`
-* OSINT pubblico persona/azienda con `/security_person_osint`
+* OSINT pubblico persona/azienda con `/osintpersona` (`/security_person_osint` resta alias)
 * Esecuzione solo su target presenti in allowlist
 * Gestione allowlist da Telegram con `/audit_allow`
 * Modalità automatiche: `passive`, `web-light`, `recon`, `network`, `full-audit`
@@ -247,6 +252,12 @@ LLM_MODEL=llama3
 
 PCLOUD_FOLDER_URL=
 
+RAGNIR_BASE_URL=
+RAGNIR_API_TOKEN=
+
+RAVEN_BASE_URL=
+RAVEN_API_TOKEN=
+
 MEMORY_DIR=/home/opc/assistente_ia/memory
 VAULT_PATH=/home/opc/assistente_ia/privatebrain
 
@@ -302,7 +313,11 @@ EMAIL_CLIENT_ALERTS_FILE=
 | YOUR_CHAT_ID                      | Utente Telegram autorizzato                      |
 | GROQ_API_KEY                      | Chiave API Groq                                  |
 | LLM_MODEL                         | Modello locale Ollama                            |
-| PCLOUD_FOLDER_URL                 | Link PCloud pubblico di default per `/piercepcloud` |
+| PCLOUD_FOLDER_URL                 | Link PCloud pubblico di default per `/ricercafile` (`/piercepcloud` alias) |
+| RAGNIR_BASE_URL                   | Endpoint HTTP del worker remoto Ragnir          |
+| RAGNIR_API_TOKEN                  | Token opzionale per autenticare Ragnir          |
+| RAVEN_BASE_URL                    | Endpoint HTTP del worker threat intel Raven     |
+| RAVEN_API_TOKEN                   | Token opzionale per autenticare Raven           |
 | MEMORY_DIR                        | Directory locale della memoria episodica         |
 | VAULT_PATH                        | Percorso del Vault Obsidian                      |
 | CALENDAR_BACKEND                  | Backend calendario: `local` o `google`           |
@@ -412,73 +427,357 @@ Se c'è un workflow pendente, anche un follow-up vocale può completarlo. Per
 esempio, dopo una richiesta calendario senza orario, un vocale con "alle 15"
 viene trattato come risposta contestuale.
 
+## Menu Cognitivo Raptor OS
+
+Raptor mantiene il linguaggio naturale come interfaccia primaria, ma aggiunge
+una navigazione guidata per discovery, onboarding e shortcut operativi.
+
+Le tre modalità convivono:
+
+* linguaggio naturale: `fai osint su example.com`
+* slash command: `/auditdominio example.com`
+* menu guidato: `🛡 Sicurezza > 🌐 Audit Dominio > inserisci target`
+
+Il menu non sostituisce il router naturale. Quando un pulsante richiede input,
+Raptor salva uno stato contestuale temporaneo e interpreta il messaggio
+successivo come input del comando scelto.
+
+Home menu:
+
+```text
+🦖 Raptor OS
+
+🛡 Sicurezza
+🧠 Conoscenza
+⚙️ Utilità
+📅 Produttività
+✍️ Redazione
+⚡ Ragnir
+🐦 Raven
+```
+
+Ogni schermata usa breadcrumb, per esempio:
+
+```text
+Home > 🛡 Sicurezza
+Home > ⚙️ Utilità > 📜 Logs
+Home > ⚡ Ragnir > ⚡ Gestione sito
+Home > 🐦 Raven
+```
+
+Le quick actions globali sono:
+
+* `🏠 Home`
+* `⏪ Back`
+* `❌ Stop`
+* `🧹 Clear`
+
+Il registry centrale vive in `core/menu_registry.py` e descrive comandi,
+alias, label utente, categoria, stato feature, placeholder input e descrizioni.
+Da questa struttura si possono generare menu Telegram, help automatico,
+capability map, futura Web UI e routing AI-aware.
+
+Le feature future sono visibili come `[Coming Soon]` e rispondono con una
+roadmap sintetica invece di generare errori o pulsanti rotti.
+
+### Utilità
+
+La sezione `⚙️ Utilità` raccoglie diagnostica, stato sistema e strumenti
+operativi non specifici di Ragnir.
+
+```text
+⚙️ Utilità
+
+💻 Terminale
+📝 Aggiorna Note
+🧠 Operatore
+📊 Stato Sistema
+⚙️ Runtime
+🧠 Stato Memoria
+🔄 Workflow Attivi
+🤖 Provider AI
+🧰 Tool Locali
+📡 Sessioni
+📜 Logs
+🧹 Clear
+❌ Annulla
+```
+
+Questa sezione contiene la diagnostica generale di Raptor:
+
+* runtime e risorse
+* stato memoria
+* workflow attivi
+* provider AI e fallback
+* tool locali installati
+* sessione corrente
+* log applicativi recenti
+
+### Ragnir
+
+Ragnir è il nodo operativo leggero collegato a Raptor. Raptor mantiene
+orchestrazione, memoria, UX Telegram e reasoning; Ragnir esegue operazioni
+remote su repo, browser, screenshot, patch e publish.
+
+Ragnir non è pensato come hosting, build server pesante o storage persistente:
+GitHub resta la sorgente ufficiale del codice e Cloudflare Pages gestisce
+pubblicazione/build pubblico dei siti.
+
+Menu Ragnir:
+
+```text
+⚡ Ragnir
+
+🌐 Siti
+⚡ Gestione sito
+🧭 Ultima attività
+🛠️ Operazioni tecniche
+```
+
+#### Ragnir > Siti
+
+La sezione `🌐 Siti` usa il registro siti in `modules/ragnir/sites.py`.
+Il primo sito configurato è Offfice.it:
+
+```text
+slug: offfice-it
+repo: offfice-it
+url: https://offfice-it.pages.dev/
+file principale: public/index.html
+pagina principale: home
+```
+
+Azioni disponibili:
+
+```text
+🌐 Lista siti
+ℹ️ Info sito
+🩺 Check sito
+📸 Screenshot sito
+✏️ Modifica sito
+🚀 Pubblica sito
+```
+
+Comandi collegati:
+
+```text
+/ragnir sites
+/ragnir site-info offfice
+/ragnir check-site offfice
+/ragnir screenshot-page offfice home
+/ragnir edit-site offfice <istruzione>
+/ragnir edit-page offfice home <istruzione>
+/ragnir publish-site offfice "messaggio commit"
+```
+
+#### Ragnir > Gestione sito
+
+`⚡ Gestione sito` contiene shortcut umani per Offfice.it:
+
+```text
+ℹ️ Info Offfice.it
+✏️ Modifica Home
+📸 Screenshot Home
+🩺 Check Online
+🚀 Pubblica
+📦 Stato Repo
+```
+
+Flusso tipico:
+
+```text
+Modifica Home
+ ↓
+input istruzione
+ ↓
+preview diff
+ ↓
+conferma apply
+ ↓
+publish
+ ↓
+conferma publish
+ ↓
+screenshot/check finale
+```
+
+Le modifiche ai siti sono protette da preview, conferma e backup. I file
+modificabili sono limitati da `safe_edit_files` in `sites.py`; i file protetti,
+i path pericolosi e i path fuori whitelist vengono bloccati.
+
+#### Ragnir > Ultima attività
+
+`🧭 Ultima attività` richiama:
+
+```text
+/ragnir last
+```
+
+Mostra ultimo job, repo, sito, URL pubblico, request id, stato e bottoni rapidi.
+
+#### Ragnir > Operazioni tecniche
+
+`🛠️ Operazioni tecniche` contiene gli strumenti grezzi/manuali del worker
+Ragnir, utili per debug personale e interventi diretti:
+
+```text
+🌐 Fetch URL
+📸 Screenshot URL
+📡 Status Ragnir
+🧹 Cleanup temp
+📦 Repo status manuale
+```
+
+Comandi collegati:
+
+```text
+/ragnir fetch <url>
+/ragnir screenshot <url>
+/ragnir status
+/ragnir cleanup
+/ragnir repo <repo>
+```
+
+### Raven Threat Intel
+
+Raven prepara il prossimo modulo su VPS separata dedicato a threat intelligence,
+IOC lookup e feed OSINT. La base Telegram e router è già presente: lo status
+mostra configurazione locale, mentre le capability operative restano marcate
+come `[Coming Soon]` finché il worker remoto non viene collegato.
+
+```text
+🐦 Raven
+
+📡 Status Raven
+🧭 Threat Intel [Coming Soon]
+🧬 IOC Lookup [Coming Soon]
+📚 Feed Threat [Coming Soon]
+```
+
+Esempi previsti:
+
+```text
+/raven status
+/raven intel example.com
+/raven ioc 8.8.8.8
+```
+
 ## Comandi Principali
 
 | Comando | Descrizione |
 |---|---|
-| /redazione | Genera o pianifica contenuti/articoli per il blog |
+| /menu | Apre la home guidata di Raptor OS |
+| /help | Mostra help e capability dal registry del menu |
+| /scriviarticolo | Genera o pianifica contenuti/articoli per il blog |
+| /redazione | Alias compatibile di `/scriviarticolo` |
 | /cmd | Esegue comandi terminale autorizzati |
 | /aggiornanote | Aggiorna e sincronizza subito le note Obsidian |
 | /clear | Pulisce il contesto conversazionale e la memoria breve |
+| /annulla | Interrompe il workflow attivo |
 | /vettorizza | Indicizza domini e contenuti tramite Internet Archive |
-| /piercevector | Recupera e approfondisce memoria vettoriale temporanea |
-| /piercepcloud | Analizza, riassume e traduce file/cartelle PCloud |
-| /piercetelegram | Analizza e indicizza contenuti di canali Telegram |
+| /ricercadominio | Recupera e approfondisce memoria vettoriale temporanea |
+| /piercevector | Alias compatibile di `/ricercadominio` |
+| /ricercafile | Analizza, riassume e traduce file/cartelle PCloud |
+| /piercepcloud | Alias compatibile di `/ricercafile` |
+| /ricercatelegram | Analizza e indicizza contenuti di canali Telegram |
+| /piercetelegram | Alias compatibile di `/ricercatelegram` |
 | /web | Ricerca web con sintesi breve e fonti |
 | /email | Workflow email con preview e conferma |
 | /calendar | Gestione calendario ed eventi |
 | /audit | Audit security controllato su target autorizzati |
+| /auditdominio | Audit tecnico controllato, default `recon` |
+| /security_audit | Alias compatibile di `/auditdominio` |
 | /security_osint | OSINT passivo su dominio |
-| /security_person_osint | OSINT pubblico su persona/azienda |
-| /security_audit | Alias audit tecnico controllato, default `recon` |
+| /osintpersona | OSINT pubblico su persona/azienda |
+| /security_person_osint | Alias compatibile di `/osintpersona` |
 | /audit_allow | Gestione allowlist security da Telegram |
 | /audit_watch | Monitor periodico dei target autorizzati |
-| /security_watch | Alias di `/audit_watch` |
+| /watchtarget | Monitor periodico dei target autorizzati |
+| /security_watch | Alias compatibile di `/watchtarget` |
 | /audit_history | Storico degli audit security |
 | /real_audit | Avvio diretto di `real-audit` con conferma |
+| /statooffensive | Stato del gate offensive |
 | /offensive_status | Stato del gate offensive |
 | /offensive_enable | Abilita temporaneamente offensive safe mode per un target |
 | /offensive_run | Esegue controlli offensivi safe su target abilitato |
 | /offensive_explicit | Esegue controlli lab-only con conferma specifica |
 | /offensive_disable | Disabilita offensive mode |
 | /timeline | Consulta timeline cognitiva e storica del progetto |
-| /operator | Attiva modalità operatore ultra sintetica; `/operator off` per disattivare |
-| /annulla | Interrompe il workflow attivo |
+| /operatore | Attiva modalità operatore ultra sintetica; `/operatore off` per disattivare |
+| /operator | Alias compatibile di `/operatore` |
+| /ragnir | Worker remoto Ragnir per repo, siti, screenshot, patch e publish |
+| /raven | Base per worker threat intel su VPS separata |
 
----
+### Comandi Ragnir principali
+
+| Comando | Descrizione |
+|---|---|
+| /ragnir status | Ping/status rapido del worker Ragnir |
+| /ragnir last | Ultima attività Ragnir con sito, repo, request id e bottoni rapidi |
+| /ragnir sites | Lista dei siti configurati in `modules/ragnir/sites.py` |
+| /ragnir site-info `<site>` | Configurazione completa del sito |
+| /ragnir check-site `<site>` | Check online del sito tramite URL pubblico |
+| /ragnir screenshot-page `<site>` `<page>` | Screenshot di una pagina configurata |
+| /ragnir edit-site `<site>` `<istruzione>` | Modifica il file principale del sito con preview e conferma |
+| /ragnir edit-page `<site>` `<page>` `<istruzione>` | Modifica una pagina configurata con preview e conferma |
+| /ragnir publish-site `<site>` `"messaggio"` | Prepara commit + push del sito con conferma |
+| /ragnir fetch `<url>` | Fetch tecnico di una URL libera |
+| /ragnir screenshot `<url>` | Screenshot tecnico di una URL libera |
+| /ragnir cleanup | Pulizia file temporanei lato Ragnir |
+| /ragnir repo `<repo>` | Stato Git di una repo gestita da Ragnir |
+| /ragnir conferma | Conferma una pending action Ragnir |
+| /ragnir annulla | Annulla una pending action Ragnir |
 
 ## Esempi Rapidi
 
 ```text
-/redazione articolo SEO WordPress per hotel
+/menu
+/scriviarticolo articolo SEO WordPress per hotel
 /cmd ls -la
 /aggiornanote
 /clear
 
 /vettorizza example.com cybersecurity
-/piercevector example.com
-/piercepcloud
-/piercetelegram
+/ricercadominio example.com
+/ricercafile
+/ricercatelegram
 
 /email
 /calendar domani
-/audit dominio.it passive
+/auditdominio dominio.it
 
 /timeline semantic reranking
-/operator on
+/operatore on
+
+/ragnir status
+/ragnir last
+/ragnir sites
+/ragnir site-info offfice
+/ragnir check-site offfice
+/ragnir screenshot-page offfice home
+/ragnir edit-page offfice home rendi il footer più chiaro
+/ragnir publish-site offfice "Aggiorna contenuti sito"
+/ragnir fetch https://example.com
+/ragnir screenshot https://example.com
+
+/raven status
+/raven intel example.com
 ```
 
 ## Workflow Cognitivi
 
 Raptor distingue:
 
-* retrieval semantico (`/piercevector`)
+* navigazione guidata e discovery (`/menu`)
+* retrieval semantico (`/ricercadominio`, alias `/piercevector`)
 * ingestione conoscenza (`/vettorizza`)
-* ingestione documentale (`/piercepcloud`)
-* ingestione Telegram (`/piercetelegram`)
-* generazione contenuti (`/redazione`)
+* ingestione documentale (`/ricercafile`, alias `/piercepcloud`)
+* ingestione Telegram (`/ricercatelegram`, alias `/piercetelegram`)
+* generazione contenuti (`/scriviarticolo`, alias `/redazione`)
 * operazioni sistema (`/cmd`)
 * sincronizzazione knowledge base (`/aggiornanote`)
+* gestione siti/repo tramite Ragnir (`/ragnir`)
+* threat intelligence su VPS separata (`/raven`)
 
 Questo permette di mantenere separati:
 
@@ -488,23 +787,151 @@ Questo permette di mantenere separati:
 * knowledge ingestion
 * workflow operativi
 
+## Ragnir e gestione siti
+
+Il modulo Ragnir vive in `modules/ragnir/` lato Raptor e comunica con un worker
+remoto tramite `RAGNIR_BASE_URL` e `RAGNIR_API_TOKEN`.
+
+Ruoli separati:
+
+```text
+Raptor
+= orchestratore, UX Telegram, memoria, LLM reasoning, pending action
+
+Ragnir
+= execution node leggero: repo, git, browser, screenshot, patch, publish
+
+GitHub
+= source of truth del codice
+
+Cloudflare Pages
+= deploy/build pubblico dei siti
+```
+
+Il worker Ragnir deve restare leggero:
+
+* niente hosting applicativo pesante
+* niente build server persistente
+* niente storage permanente enorme
+* repo limitate e controllate
+* screenshot, backup e tmp gestiti come artefatti temporanei
+
+### Registro siti
+
+La configurazione site-aware vive in:
+
+```text
+modules/ragnir/sites.py
+```
+
+Per ogni sito il registry può definire:
+
+* slug e alias
+* repo Git
+* branch e remote
+* URL pubblico
+* healthcheck URL
+* screenshot URL
+* file principale
+* pagine configurate
+* file modificabili
+* file protetti
+* policy operative
+* provider deploy
+
+Esempio attuale:
+
+```text
+site: offfice-it
+alias: offfice, offfice.it, office
+repo: offfice-it
+branch: main
+remote: origin
+provider: cloudflare_pages
+public_url: https://offfice-it.pages.dev/
+main_file: public/index.html
+page: home -> public/index.html
+```
+
+### Flusso edit sicuro
+
+Le modifiche Ragnir non vengono applicate direttamente. Il flusso è:
+
+```text
+utente/menu
+ ↓
+/ragnir edit-page offfice home <istruzione>
+ ↓
+LLM edit preview
+ ↓
+diff leggibile
+ ↓
+pending repo_apply_patch
+ ↓
+/ragnir conferma
+ ↓
+backup + apply patch
+ ↓
+repo dirty
+ ↓
+/ragnir publish-site offfice "messaggio"
+ ↓
+pending repo_publish
+ ↓
+/ragnir conferma
+ ↓
+commit + push
+ ↓
+Cloudflare Pages pubblica
+```
+
+Ogni modifica genera backup lato Ragnir prima dell'applicazione. Il publish usa
+commit + push verso il remote/branch configurato.
+
+### Safe edit enforcement
+
+La sicurezza dell'editing si basa su whitelist e blocchi espliciti:
+
+* `safe_edit_files`: file modificabili
+* `protected_files`: file sempre bloccati
+* blocco di path traversal (`../`)
+* blocco di path assoluti (`/etc/passwd`)
+* blocco di file non previsti dal registry sito
+* conferma obbligatoria prima di apply e publish
+
+### Limiti attuali dell'editing HTML
+
+L'editing LLM leggero funziona bene per modifiche puntuali, ma file HTML con
+molti stili inline o sezioni lunghe possono produrre modifiche parziali.
+
+Per questo la roadmap prevede:
+
+* controllo qualità sulla preview
+* warning se il diff sembra troppo piccolo rispetto alla richiesta
+* `edit-section` per modificare sezioni come footer/header/hero
+* `diff-last` e `rollback-last`
+* full-file edit solo in modalità controllata
+
+
 ## Ingestione PCloud
 
-`/piercepcloud` legge link pubblici PCloud e apre un browser Telegram con
+`/ricercafile` legge link pubblici PCloud e apre un browser Telegram con
 cartelle e file. I bottoni cartella navigano dentro il percorso selezionato; i
 bottoni file leggono o analizzano il contenuto.
+
+`/piercepcloud` resta alias compatibile.
 
 Uso con link configurato nel `.env`:
 
 ```text
-/piercepcloud
+/ricercafile
 ```
 
 Uso con uno o più link passati direttamente da Telegram:
 
 ```text
-/piercepcloud https://e.pcloud.link/publink/show?code=...
-/piercepcloud https://link-cartella-1 https://link-cartella-2
+/ricercafile https://e.pcloud.link/publink/show?code=...
+/ricercafile https://link-cartella-1 https://link-cartella-2
 ```
 
 Se il link punta a una cartella pubblica, Raptor mostra prima il livello
@@ -535,13 +962,15 @@ contenuto resta disponibile solo per i formati leggibili dal bot.
 keyword di routing, poi crea/aggiorna la collection ChromaDB e il registry in
 `memory_core/memory_sources.py`.
 
-`/piercevector` consulta memoria già costruita: selezioni una collection,
+`/ricercadominio` consulta memoria già costruita: selezioni una collection,
 inserisci una query, il sistema recupera documenti da Chroma, li reranka e
 mostra sorgenti e sintesi. Quando i metadata Chroma contengono identifier o URL
 Internet Archive, prova anche un fetch live leggero: legge solo pochi file
 testuali/PDF limitati, reranka chunk reali e li passa alla sintesi. Se non trova
 contesto pertinente non genera una sintesi inventata. Se il retrieval Chroma
 fallisce, lo dichiara e usa un fallback live da Internet Archive.
+
+`/piercevector` resta alias compatibile.
 
 Il fetch live è progettato per non appesantire la VPS: preferisce `_djvu.txt`,
 file testuali e HTML; usa PDF solo come fallback limitato; OCR disattivato di
@@ -841,8 +1270,10 @@ supportati sono:
 /audit dominio.it full-audit
 /audit dominio.it real-audit
 /real_audit dominio.it
+/auditdominio dominio.it
 /security_audit dominio.it recon
 /security_osint dominio.it
+/osintpersona "Nome Cognome"
 /security_person_osint "Nome Cognome"
 /audit_history dominio.it
 /audit_allow dominio.it
@@ -854,7 +1285,9 @@ supportati sono:
 /audit_watch dominio.it 24 full-audit
 /audit_watch list
 /audit_watch off dominio.it
+/watchtarget dominio.it
 /security_watch dominio.it
+/statooffensive
 /offensive_status
 /offensive_enable dominio.it
 /offensive_enable dominio.it 60
@@ -925,12 +1358,14 @@ Lo stack locale usato quando disponibile include:
 * `gau`, `waybackurls`
 * `httpx`, `whatweb`, `wafw00f`
 
-`/security_person_osint "Nome Cognome"` usa solo dati pubblici e username
+`/osintpersona "Nome Cognome"` usa solo dati pubblici e username
 candidati. Lo scopo è orientativo: profili, domini o email devono essere
 verificati manualmente per evitare omonimie e falsi positivi. Lo stack locale
 integrabile è `maigret` e `sherlock`; `holehe` resta disponibile come tool
 OSINT specializzato su email, ma non viene eseguito automaticamente senza un
 indirizzo esplicito.
+
+`/security_person_osint` resta alias compatibile.
 
 ### Offensive Safe Gate
 
@@ -1477,7 +1912,7 @@ Raptor utilizza collezioni persistenti ChromaDB per:
 
 | Script                           | Descrizione                          |
 | -------------------------------- | ------------------------------------ |
-| sync_notes.sh                    | Sincronizza le note Obsidian con Git |
+| sync_notes.sh                    | Sincronizza `privatebrain/` con Git: commit, pull rebase e push |
 | scripts/email_ingest_runner.py   | Indicizza email recenti e invia alert cliente/lavoro |
 | scripts/rebuild_vector_memory.py | Ricostruisce la memoria vettoriale   |
 | scripts/memory_matcher.py        | Utility di matching della memoria    |
@@ -1498,10 +1933,17 @@ Cron attivi consigliati/attualmente usati:
 ```
 
 Il primo cron gira ogni giorno alle 03:00 e sincronizza `privatebrain/` con
-Git tramite `git pull`. Il log viene scritto in:
+Git: committa le modifiche locali del vault, esegue `git pull --rebase` e poi
+`git push`. Il log viene scritto in:
 
 ```text
 logs/sync_notes.log
+```
+
+Il repository Git interno di `privatebrain/` usa come remote:
+
+```text
+https://github.com/gabrieleviolait/privatebrain.git
 ```
 
 Il secondo cron gira ogni 15 minuti e:
@@ -1529,7 +1971,9 @@ Il check giornaliero email interno al bot usa invece `JobQueue` di
 | Directory         | Scopo                                  |
 | ----------------- | -------------------------------------- |
 | core/             | Configurazione e utility core          |
+| core/menu_registry.py | Registry semantico menu, alias e capability |
 | handlers/         | Handler Telegram                       |
+| handlers/menu_handler.py | UI Telegram del menu cognitivo e input contestuale |
 | internal/         | Workflow e logica interna              |
 | memory/           | Memoria episodica locale               |
 | memory_core/      | Motore memoria e semantica             |
@@ -1650,7 +2094,7 @@ python scripts/ingest_git_timeline.py --limit 100
 
 ## Modalità Operatore
 
-`/operator` attiva output ultra sintetico:
+`/operatore` attiva output ultra sintetico:
 
 ```text
 ✔ operator ON
@@ -1659,9 +2103,10 @@ max_tokens=200
 
 Comandi:
 
-* `/operator` oppure `/operator on`
-* `/operator off`
-* `/operator status`
+* `/operatore` oppure `/operatore on`
+* `/operatore off`
+* `/operatore status`
+* `/operator` resta alias compatibile
 
 In questa modalita la chat usa un prompt operativo, il motore LLM riceve un
 limite di token e gli output senza bottoni vengono compattati in stato/azione.
@@ -1675,45 +2120,52 @@ Le preview con conferma restano estese per sicurezza.
 * preview calendario
 * modifica/cancellazione note
 * suggerimenti task
-* workflow `/vettorizza`, `/piercevector`, `/piercetelegram`
+* workflow `/vettorizza`, `/ricercadominio`, `/ricercatelegram`
 * selezioni pCloud/Telegram in corso
 
-La modalita `/operator` non viene disattivata da `annulla`; si spegne solo con
-`/operator off`.
+La modalita `/operatore` non viene disattivata da `annulla`; si spegne solo con
+`/operatore off`.
 
 
 ## Stato Attuale
-#Completato
-routing multi-provider
-fallback AI resiliente
-cooldown provider automatico
-memoria semantica
-timeline cognitiva
-Telegram assistant
-CrewAI integration
-Obsidian integration
-calendar + tasks
-retrieval web
-archive ingestion
 
-#In Evoluzione
-cognitive routing
-provider balancing
-reasoning persistence
-multi-agent orchestration
-vector intelligence
-memory ranking
-security workflows
-domain specialization
+### Completato
 
-## Funzionalità in valutazione: le cose cambiano
+* v0.5.8 — LLM edit leggero
+* v0.5.9 — `sites.py` e snellimento operativo
+* v0.6.0 — bottoni Telegram per pending Ragnir
+* v0.6.1 — `/ragnir last` e sessione runtime in-memory
+* v0.6.1.1 — `sites.py` futureproof
+* v0.6.2 — `/ragnir edit-site`
+* v0.6.3 — `/ragnir site-info`
+* v0.6.4 — `/ragnir sites`
+* v0.6.5 — `/ragnir check-site`
+* v0.6.6 — `/ragnir screenshot-page`
+* v0.6.7 — `/ragnir edit-page`
+* v0.6.8 — `/ragnir publish-site`
+* v0.6.9 — safe edit enforcement
+* v0.7.0 — rework menu Telegram Ragnir
+* v0.7.0.1 — diagnostica generale spostata in Utilità
+* v0.7.0.2 — sezione Ragnir `🌐 Siti`
+* v0.7.0.3 — sezione Ragnir `⚡ Gestione sito`
+* v0.7.0.4 — sezione Ragnir `🧭 Ultima attività`
+* v0.7.0.5 — sezione Ragnir `🛠️ Operazioni tecniche`
 
-* [ ] Supporto Qdrant e migliore gestione dei dati esterni
-* [ ] Dashboard web ???
-* [ ] Supporto multi-utente ???
-* [ ] Command and control sistemi esterni
+### In evoluzione
 
----
+* v0.7.1 — post-publish flow guidato con screenshot/check/status/last
+* v0.7.3 — aggiornamento help/usage interno
+* v0.7.4 — qualità LLM edit e rilevamento modifiche incomplete
+* v0.7.5 — test negativi sicurezza e regressione safe edit
+* v0.8.x — `edit-section`, `diff-last`, `rollback-last`, full-file edit controllato e multi-site reale
+
+### Funzionalità in valutazione
+
+* Social publishing
+* Newsletter
+* Web UI locale per configurazione API e moduli
+* Gestione plugin Raptor/Ragnir installabili
+* Multi-site reale con più domini e repo configurati
 
 # Stack Tecnologico
 
@@ -1773,3 +2225,13 @@ Utilizzalo responsabilmente e proteggi:
 * memorie vettoriali
 * conversazioni private
 * storage locali
+
+
+## Licenza
+
+Questo progetto è rilasciato sotto licenza **GNU Affero General Public License v3.0 or later** (`AGPL-3.0-or-later`).
+
+Raptor OS è un sistema modulare pensato per essere usato anche come servizio, bot o componente server.  
+Le versioni modificate e rese disponibili tramite rete devono rispettare i termini della AGPLv3.
+
+Vedi il file [`LICENSE`](LICENSE).
