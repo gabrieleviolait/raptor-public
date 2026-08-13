@@ -34,6 +34,7 @@ Raptor è un assistente IA personale progettato come sistema cognitivo modulare 
 * gestione calendario local-first con preview e conferma
 * stato operativo persistente minimale
 * audit security controllati su target autorizzati
+* Raven integrato per breach check, IOC enrichment e monitoraggio passivo
 * ingestione documentale e pipeline di conoscenza
 * package dedicati per archivi Internet Archive ed embeddings
 * routing intelligente tra modelli AI
@@ -43,12 +44,15 @@ Il progetto utilizza:
 
 * Groq
 * Cerebras
+* OpenRouter
+* NVIDIA NIM
 * Ollama
 * ChromaDB
 * CrewAI
 * Telegram Bot API
 * Google Calendar API e Google Task API
 * Vault Markdown Obsidian
+* Have I Been Pwned e provider community abuse.ch
 
 ---
 
@@ -56,7 +60,7 @@ Il progetto utilizza:
 
 ## Core AI
 
-* Routing ibrido dei modelli LLM (Groq + Cerebras + Ollama)
+* Routing ibrido dei modelli LLM (Groq + Cerebras + OpenRouter + NVIDIA + Ollama)
 * Ragionamento avanzato con CrewAI
 * Pipeline di reranking cognitivo
 * Workflow AI modulari
@@ -70,6 +74,10 @@ Pipeline AI resiliente:
 Groq
  ↓
 Cerebras
+ ↓
+OpenRouter
+ ↓
+NVIDIA NIM
  ↓
 Ollama locale
 
@@ -152,6 +160,71 @@ supporto offline
 * Filtro intent per evitare falsi positivi come `si verifica`
 * Log locale leggero delle ricerche in `data/web/search_log.json`
 
+## Ricerca Memoria
+
+* Menu guidato `🧠 Conoscenza > 🔎 Ricerca Memoria`
+* Filtri MVP: ovunque, note, timeline e storage
+* Output spiegabile con fonte, collection, rilevanza, estratto e motivo del match
+* Comandi rapidi: `/memoria provider fallback`, `/memoria note Ragnir`, `/memoria timeline Cloud Vault`, `/memoria storage report`
+
+### Cloud Vault
+
+Cloud Vault espone nell'interfaccia i due remoti attivi (`pcloud`, `gdrive`),
+con ricerca e apertura dei contenuti solo on-demand.
+
+* UX: `/storage last`, `page 2`, `next`, `prev`, `open next`, `summarize next`
+* Policy: badge dimensione/rischio, Info sempre disponibile, sample da pulsante e force solo esplicito
+* Deep ingest: `/storage summarize-range 3 1-10`, `/storage ingest-range 3 1-20`
+* Job: `/storage queue-ingest 3`, `/storage jobs`, `/storage job <id>`, `/storage cancel-job <id>`
+* Memoria: `/storage link 3 project Raptor`, `/storage insights 3`, `/storage related Raptor`
+* Arricchimento: `/storage extract-tags 3`, `/storage extract-entities 3`
+
+Configurazione remoti e policy: `.env.storage.example`. Il servizio Google
+Drive pronto per il deploy è in `deploy/raptor-rclone-gdrive.service`.
+
+## Redazione e SEO
+
+* Redazione guidata con `/scriviarticolo` e alias `/redazione`
+* Tool SEO leggero con `/seo`, integrato nel menu `✍️ Redazione`
+* Keyword clustering semplice per intento di ricerca
+* Generazione di title SEO, meta description e slug consigliato
+* Brief SEO automatico con H1, struttura H2, FAQ e linee guida editoriali
+* SEO report analyzer semplice con score, segnali OK, criticità e azioni consigliate
+* SEO URL analyzer con `/seo url`, fetch limitato e parsing di title, meta, H1, H2, testo e slug
+* Menu guidato `✍️ Redazione > 🔍 SEO` con flow per cluster, snippet, brief, audit testo e audit URL
+* Alias rapidi: `/seobrief` per brief automatico e `/seoreport` per analisi report/testo
+
+## Social publishing
+
+* Dashboard Telegram `/socialpost`
+* Account Meta configurabili senza salvare token nel database
+* Pubblicazione su pagine Facebook e profili Instagram Business
+* Supporto a Page Access Token e token Meta System User autorizzati
+* Immagini locali o URL HTTP/HTTPS; copia opzionale verso una directory pubblica
+* Pubblicazione immediata o programmata con coda SQLite
+* Import bulk da ZIP
+* Stati `scheduled`, `publishing`, `published`, `partial` e `failed`
+* Notifica Telegram con ID remoti o dettaglio degli errori
+
+Instagram richiede un URL HTTPS pubblicamente raggiungibile per l'immagine.
+
+## Newsletter
+
+* Dashboard Telegram `/newsletter`
+* Liste e contatti persistenti con deduplica per email
+* Inserimento manuale e import CSV
+* Preview e modifica prima dell'invio
+* Invio immediato o programmato tramite la coda email esistente
+* Invii individuali equivalenti a BCC, tracciati come run newsletter
+
+## Riassunti
+
+* Menu guidato `📅 Produttività > 📚 Riassunti`
+* Sorgenti MVP: testo incollato, note recenti e pagina web da URL
+* Stili disponibili: breve, operativo, executive
+* Salvataggio automatico degli ultimi riassunti e memoria episodica
+* Comandi rapidi: `/summary text operativo ...`, `/summary notes breve`, `/summary web executive https://...`, `/summary last`
+
 ## Audit Security
 
 * Comando Telegram `/audit`
@@ -167,6 +240,21 @@ supporto offline
 * Parsing automatico di finding nuclei, TLS deprecati e tecnologie rilevate
 * Calcolo sintetico del rischio e grafo della superficie d'attacco
 * Report Markdown e JSON salvati in `reports/security/`
+
+## Raven Threat Intelligence
+
+* Modulo difensivo integrato direttamente in Raptor, con worker HTTP remoto opzionale
+* Breach check email tramite Have I Been Pwned
+* Controllo password con HIBP Pwned Passwords e k-anonymity
+* Ricerca passiva di username, domini, persone e aziende
+* Exact-match IOC enrichment tramite ThreatFox
+* Controllo URL, host e payload metadata tramite URLhaus
+* Metadata hash tramite MalwareBazaar, senza download di sample
+* Ricerca su indici dark-web pubblici senza visitare servizi onion
+* Monitor periodici persistenti con alert Telegram solo sulle variazioni
+* Storico locale SQLite con target email mascherati e permessi `0600`
+
+Documentazione completa: [`modules/raven/README.md`](modules/raven/README.md).
 
 ## Infrastruttura
 
@@ -241,12 +329,20 @@ nel virtualenv attivo.
 
 Raptor utilizza un file `.env` per la configurazione locale.
 
+Il token condiviso con Ragnir viene letto da
+`RAGNIR_ENV_PATH=/home/opc/ragnir/.env`, così non deve essere duplicato nel
+file `.env` di Raptor.
+
 ## Esempio `.env`
 
 ```env
 TELEGRAM_TOKEN=
 YOUR_CHAT_ID=
 GROQ_API_KEY=
+OPENROUTER_API_KEY=
+MODEL_OPENROUTER=openrouter/free
+NVIDIA_API_KEY=
+MODEL_NVIDIA=nvidia/llama-3.3-nemotron-super-49b-v1
 
 LLM_MODEL=llama3
 
@@ -257,11 +353,26 @@ RAGNIR_API_TOKEN=
 
 RAVEN_BASE_URL=
 RAVEN_API_TOKEN=
+HIBP_API_KEY=
+RAVEN_ABUSECH_AUTH_KEY=
+RAVEN_DB_PATH=/home/opc/assistente_ia/data/raven.sqlite
+RAVEN_DARKWEB_API_KEY=
+RAVEN_DARKWEB_INDEX_ENABLED=true
+RAVEN_MONITOR_INTERVAL_SECONDS=3600
+
+SOCIAL_DB_PATH=/home/opc/assistente_ia/data/social.sqlite
+SOCIAL_MEDIA_DIR=/home/opc/assistente_ia/data/social_media
+SOCIAL_PUBLIC_MEDIA_BASE_URL=
+SOCIAL_PUBLIC_MEDIA_UPLOAD_DIR=
+SOCIAL_GRAPH_API_VERSION=v24.0
+SOCIAL_SCHEDULER_ENABLED=true
+SOCIAL_SCHEDULER_INTERVAL_SECONDS=60
 
 MEMORY_DIR=/home/opc/assistente_ia/memory
 VAULT_PATH=/home/opc/assistente_ia/privatebrain
 
 OLLAMA_BASE_URL=http://localhost:11434
+MODEL_LOCAL=llama3.2:3b
 
 CALENDAR_BACKEND=local
 CALENDAR_EVENTS_FILE=
@@ -303,6 +414,34 @@ EMAIL_CLIENT_ALERTS_PROVIDER=aruba
 EMAIL_CLIENT_ALERTS_LIMIT=20
 EMAIL_CLIENT_ALERTS_MAX_PER_RUN=3
 EMAIL_CLIENT_ALERTS_FILE=
+EMAIL_SCHEDULER_ENABLED=true
+EMAIL_SCHEDULER_DB_PATH=/home/opc/assistente_ia/data/email_scheduler.sqlite
+EMAIL_SCHEDULER_INTERVAL_SECONDS=30
+EMAIL_SCHEDULER_BATCH_SIZE=10
+EMAIL_CAMPAIGN_MAX_RECIPIENTS=150
+EMAIL_CAMPAIGN_AI_ENABLED=true
+EMAIL_CAMPAIGN_AI_BATCH_SIZE=8
+EMAIL_CAMPAIGN_MAX_CONSECUTIVE_FAILURES=3
+EMAIL_FOLLOWUP_REPLY_CHECK_ENABLED=true
+EMAIL_FOLLOWUP_REPLY_CHECK_INTERVAL_SECONDS=900
+```
+
+## Modalità privacy locale
+
+`/privacy` (alias `/privato`, `/locale`, `/local`) apre il selettore dei
+modelli locali. Sono configurati `gemma4:e2b` (Gemma 4 E2B) e
+`llama3.2:3b`; la stessa scelta è disponibile in Utilità → Provider AI.
+
+Quando la modalità privacy è attiva, il router e i workflow CrewAI bloccano
+Groq, Cerebras, OpenRouter e NVIDIA. Se Ollama locale non risponde, la
+richiesta fallisce senza fallback cloud. Stato e modello selezionato sono
+persistiti in `data/privacy_mode.json` (runtime non versionato).
+
+```text
+/privacy
+/privacy on gemma
+/privacy on llama
+/privacy off
 ```
 
 ## Variabili Importanti
@@ -312,12 +451,29 @@ EMAIL_CLIENT_ALERTS_FILE=
 | TELEGRAM_TOKEN                    | Token del bot Telegram                           |
 | YOUR_CHAT_ID                      | Utente Telegram autorizzato                      |
 | GROQ_API_KEY                      | Chiave API Groq                                  |
-| LLM_MODEL                         | Modello locale Ollama                            |
+| OPENROUTER_API_KEY                | Chiave del fallback OpenRouter                   |
+| MODEL_OPENROUTER                  | Modello OpenRouter, default `openrouter/free`    |
+| NVIDIA_API_KEY                    | Chiave del fallback NVIDIA NIM                   |
+| MODEL_NVIDIA                      | Modello NVIDIA NIM                               |
+| MODEL_LOCAL                       | Modello Ollama usato dal fallback locale         |
 | PCLOUD_FOLDER_URL                 | Link PCloud pubblico di default per `/ricercafile` (`/piercepcloud` alias) |
 | RAGNIR_BASE_URL                   | Endpoint HTTP del worker remoto Ragnir          |
 | RAGNIR_API_TOKEN                  | Token opzionale per autenticare Ragnir          |
-| RAVEN_BASE_URL                    | Endpoint HTTP del worker threat intel Raven     |
-| RAVEN_API_TOKEN                   | Token opzionale per autenticare Raven           |
+| RAVEN_BASE_URL                    | Endpoint opzionale del worker Raven; vuoto usa il servizio locale |
+| RAVEN_API_TOKEN                   | Token opzionale per autenticare il worker Raven remoto |
+| HIBP_API_KEY                      | Chiave HIBP per verifiche email; password non la richiede |
+| RAVEN_ABUSECH_AUTH_KEY            | Auth-Key community abuse.ch per ThreatFox, URLhaus e MalwareBazaar |
+| RAVEN_DB_PATH                     | Database SQLite di check e monitor Raven         |
+| RAVEN_DARKWEB_API_KEY             | Token opzionale dell'indice dark-web passivo     |
+| RAVEN_DARKWEB_INDEX_ENABLED       | Abilita ricerca passiva senza visitare siti onion |
+| RAVEN_MONITOR_INTERVAL_SECONDS    | Frequenza worker monitor, minimo 900 secondi      |
+| SOCIAL_DB_PATH                    | Database SQLite per account e coda social         |
+| SOCIAL_MEDIA_DIR                  | Directory locale dei media social                 |
+| SOCIAL_PUBLIC_MEDIA_BASE_URL      | Base URL HTTPS dei media destinati a Instagram    |
+| SOCIAL_PUBLIC_MEDIA_UPLOAD_DIR    | Directory locale esposta dalla base URL pubblica  |
+| SOCIAL_GRAPH_API_VERSION          | Versione Meta Graph API, default `v24.0`          |
+| SOCIAL_SCHEDULER_ENABLED          | Abilita il worker della coda social               |
+| SOCIAL_SCHEDULER_INTERVAL_SECONDS | Intervallo coda social, minimo 15 secondi          |
 | MEMORY_DIR                        | Directory locale della memoria episodica         |
 | VAULT_PATH                        | Percorso del Vault Obsidian                      |
 | CALENDAR_BACKEND                  | Backend calendario: `local` o `google`           |
@@ -355,6 +511,16 @@ EMAIL_CLIENT_ALERTS_FILE=
 | EMAIL_CLIENT_ALERTS_LIMIT         | Numero email non lette controllate dagli alert   |
 | EMAIL_CLIENT_ALERTS_MAX_PER_RUN   | Numero massimo di alert inviati a ogni cron      |
 | EMAIL_CLIENT_ALERTS_FILE          | File locale per deduplicare gli alert già inviati |
+| EMAIL_SCHEDULER_ENABLED           | Abilita la coda persistente per gli invii programmati |
+| EMAIL_SCHEDULER_DB_PATH           | Database SQLite della coda email                  |
+| EMAIL_SCHEDULER_INTERVAL_SECONDS  | Frequenza di controllo della coda                 |
+| EMAIL_SCHEDULER_BATCH_SIZE        | Invii massimi reclamati per ciclo; base per campagne future |
+| EMAIL_CAMPAIGN_MAX_RECIPIENTS     | Limite hard di destinatari importabili per campagna |
+| EMAIL_CAMPAIGN_AI_ENABLED         | Abilita personalizzazione AI con fallback deterministico |
+| EMAIL_CAMPAIGN_AI_BATCH_SIZE      | Contatti elaborati per batch di personalizzazione |
+| EMAIL_CAMPAIGN_MAX_CONSECUTIVE_FAILURES | Errori consecutivi prima della pausa automatica |
+| EMAIL_FOLLOWUP_REPLY_CHECK_ENABLED | Annulla follow-up quando trova una risposta nello stesso thread |
+| EMAIL_FOLLOWUP_REPLY_CHECK_INTERVAL_SECONDS | Frequenza del controllo IMAP dei follow-up |
 
 Nota: le firme configurate nella webmail non vengono applicate automaticamente
 agli invii SMTP. Per Aruba usa `EMAIL_ARUBA_SIGNATURE` oppure
@@ -461,7 +627,7 @@ Ogni schermata usa breadcrumb, per esempio:
 ```text
 Home > 🛡 Sicurezza
 Home > ⚙️ Utilità > 📜 Logs
-Home > ⚡ Ragnir > ⚡ Gestione sito
+Home > ⚡ Ragnir > 🌐 Gestione siti
 Home > 🐦 Raven
 ```
 
@@ -528,16 +694,18 @@ Menu Ragnir:
 ```text
 ⚡ Ragnir
 
-🌐 Siti
-⚡ Gestione sito
-🧭 Ultima attività
-🛠️ Operazioni tecniche
+🌐 Gestione siti
+📝 Modifiche sito
+📸 Anteprima e controlli
+🚀 Pubblicazione
+🛠 Operazioni tecniche
+🏠 Home
 ```
 
-#### Ragnir > Siti
+#### Registro siti Ragnir
 
-La sezione `🌐 Siti` usa il registro siti in `modules/ragnir/sites.py`.
-Il primo sito configurato è Offfice.it:
+Ragnir usa il registro siti in `modules/ragnir/sites.py`. Il primo sito
+configurato è Offfice.it:
 
 ```text
 slug: offfice-it
@@ -547,7 +715,7 @@ file principale: public/index.html
 pagina principale: home
 ```
 
-Azioni disponibili:
+Azioni sito-specifiche usate dai sottomenu:
 
 ```text
 🌐 Lista siti
@@ -570,35 +738,48 @@ Comandi collegati:
 /ragnir publish-site offfice "messaggio commit"
 ```
 
-#### Ragnir > Gestione sito
+#### Ragnir > Gestione siti
 
-`⚡ Gestione sito` contiene shortcut umani per Offfice.it:
+`🌐 Gestione siti` contiene shortcut di gestione multi-sito:
 
 ```text
-ℹ️ Info Offfice.it
-✏️ Modifica Home
-📸 Screenshot Home
-🩺 Check Online
-🚀 Pubblica
-📦 Stato Repo
+🌐 Lista siti
+➕ Aggiungi sito
+ℹ️ Info sito
+📦 Stato repo
+🕓 Ultima modifica
+↩️ Ripristina ultima modifica
+🌐 Configura URL pubblico
+✅ Abilita publish
 ```
+
+Le azioni sito-specifiche aprono prima una selezione sito, poi richiamano i
+callback Ragnir esistenti.
+
+In `🛠 Operazioni tecniche`, `☁️ Cloudflare Agent` mostra lo stato delle
+Cloudflare Skills, dei cinque MCP ufficiali e delle credenziali API usate da
+Ragnir. Offre collegamenti diretti a Dashboard, Pages, API Tokens e alla guida
+Agent Setup; i token non vengono mai raccolti tramite Telegram.
+
+`➕ Aggiungi sito` offre due percorsi: collegare un repository GitHub già
+esistente oppure creare un nuovo sito statico. Nel secondo percorso si può
+incollare HTML/JSON (anche come documento Telegram) o descrivere il sito in
+linguaggio naturale. Raptor prepara e mostra l'anteprima; soltanto la conferma
+esplicita delega a Ragnir la creazione del repository pubblico, il push
+iniziale e il progetto Cloudflare Pages `*.pages.dev` con deploy automatico.
 
 Flusso tipico:
 
 ```text
-Modifica Home
+Modifiche sito / Anteprima e controlli / Pubblicazione
  ↓
-input istruzione
+scelta azione
  ↓
-preview diff
+scelta sito
  ↓
-conferma apply
+preview o operazione Ragnir
  ↓
-publish
- ↓
-conferma publish
- ↓
-screenshot/check finale
+eventuale conferma
 ```
 
 Le modifiche ai siti sono protette da preview, conferma e backup. I file
@@ -638,29 +819,72 @@ Comandi collegati:
 /ragnir repo <repo>
 ```
 
-### Raven Threat Intel
+### Raven Exposure Monitoring
 
-Raven prepara il prossimo modulo su VPS separata dedicato a threat intelligence,
-IOC lookup e feed OSINT. La base Telegram e router è già presente: lo status
-mostra configurazione locale, mentre le capability operative restano marcate
-come `[Coming Soon]` finché il worker remoto non viene collegato.
+Raven è il modulo difensivo funzionante di Raptor per breach check, threat
+intelligence e monitoraggio passivo. Se `RAVEN_BASE_URL` è vuoto, il client
+esegue `RavenService` direttamente nello stesso processo di Raptor; se è
+configurato, invia lo stesso contratto job a un worker Raven HTTP remoto.
+
+Provider attivi:
+
+* **HIBP Pwned Passwords:** sempre disponibile, usa k-anonymity e invia solo i
+  primi cinque caratteri dello SHA-1; password, hash completo e prefisso non
+  vengono salvati
+* **HIBP email:** usa `HIBP_API_KEY`; senza chiave reale accetta esclusivamente
+  gli account ufficiali `@hibp-integration-tests.com`
+* **HIBP breach catalogue:** controllo pubblico dei breach organizzativi per
+  dominio; gli account verificati del dominio richiedono chiave e permessi HIBP
+* **ThreatFox:** exact-match per IOC, domini, IP, URL e hash
+* **URLhaus:** lookup read-only di URL, host/IP e metadata MD5/SHA-256
+* **MalwareBazaar:** metadata per hash MD5/SHA-1/SHA-256, senza scaricare sample
+* **Ahmia / indice configurato:** sole menzioni passive e non verificate, senza
+  connessione diretta a siti onion
+
+ThreatFox, URLhaus e MalwareBazaar condividono la Auth-Key gratuita abuse.ch
+configurata in `RAVEN_ABUSECH_AUTH_KEY`. Lo status mostra per ogni provider se
+è configurato, disponibile o limitato.
+
+Raven salva check, digest e monitor in `data/raven.sqlite` con permessi `0600`.
+Il JobQueue di Raptor esegue periodicamente i monitor dovuti e invia un alert
+Telegram soltanto quando un target già inizializzato cambia. L'intervallo del
+runner non può essere inferiore a 900 secondi; ogni monitor mantiene anche il
+proprio intervallo in ore.
 
 ```text
 🐦 Raven
 
 📡 Status Raven
-🧭 Threat Intel [Coming Soon]
-🧬 IOC Lookup [Coming Soon]
-📚 Feed Threat [Coming Soon]
+📧 Verifica email
+🔐 Verifica password
+👤 Verifica username
+🌐 Verifica dominio
+🏢 Persona / azienda
+🔔 Aggiungi monitor
 ```
 
-Esempi previsti:
+Esempi:
 
 ```text
 /raven status
-/raven intel example.com
+/raven email nome@example.com
+/breach nome@example.com
+/raven password CONFERMO password-non-piu-usata
+/raven username nomeutente
+/raven domain example.com
+/raven azienda Nome Azienda
 /raven ioc 8.8.8.8
+/raven ioc <sha256>
+/raven monitor add email nome@example.com 24
+/raven monitor list
+/raven monitor run
+/raven monitor remove email nome@example.com
 ```
+
+`/breach nome@example.com` è l'alias rapido per il controllo email. Le ricerche
+su persone e aziende sono OSINT indicativo: omonimie e menzioni non provano una
+compromissione. I dettagli architetturali, il contratto job e i guardrail sono
+in [`modules/raven/README.md`](modules/raven/README.md).
 
 ## Comandi Principali
 
@@ -670,6 +894,11 @@ Esempi previsti:
 | /help | Mostra help e capability dal registry del menu |
 | /scriviarticolo | Genera o pianifica contenuti/articoli per il blog |
 | /redazione | Alias compatibile di `/scriviarticolo` |
+| /seo | Keyword cluster, snippet SEO, brief e report analyzer semplice |
+| /seobrief | Alias rapido per generare un brief SEO automatico |
+| /seoreport | Alias rapido per analizzare un report/testo SEO |
+| /socialpost | Dashboard per pubblicare o programmare post Facebook/Instagram |
+| /newsletter | Liste contatti e newsletter immediate o programmate |
 | /cmd | Esegue comandi terminale autorizzati |
 | /aggiornanote | Aggiorna e sincronizza subito le note Obsidian |
 | /clear | Pulisce il contesto conversazionale e la memoria breve |
@@ -706,7 +935,8 @@ Esempi previsti:
 | /operatore | Attiva modalità operatore ultra sintetica; `/operatore off` per disattivare |
 | /operator | Alias compatibile di `/operatore` |
 | /ragnir | Worker remoto Ragnir per repo, siti, screenshot, patch e publish |
-| /raven | Base per worker threat intel su VPS separata |
+| /raven | Exposure monitoring difensivo, breach check e OSINT passivo |
+| /breach | Alias rapido Raven per la verifica di un indirizzo email |
 
 ### Comandi Ragnir principali
 
@@ -720,7 +950,10 @@ Esempi previsti:
 | /ragnir screenshot-page `<site>` `<page>` | Screenshot di una pagina configurata |
 | /ragnir edit-site `<site>` `<istruzione>` | Modifica il file principale del sito con preview e conferma |
 | /ragnir edit-page `<site>` `<page>` `<istruzione>` | Modifica una pagina configurata con preview e conferma |
+| /ragnir edit-section `<site>` `<page>` `<section>` `<istruzione>` | Modifica una sezione configurata, ad esempio footer/hero/main, con preview e conferma |
 | /ragnir publish-site `<site>` `"messaggio"` | Prepara commit + push del sito con conferma |
+| /ragnir diff-last | Mostra l'ultimo diff Ragnir disponibile |
+| /ragnir rollback-last | Prepara rollback dell'ultima modifica applicata, sempre con conferma |
 | /ragnir fetch `<url>` | Fetch tecnico di una URL libera |
 | /ragnir screenshot `<url>` | Screenshot tecnico di una URL libera |
 | /ragnir cleanup | Pulizia file temporanei lato Ragnir |
@@ -728,11 +961,40 @@ Esempi previsti:
 | /ragnir conferma | Conferma una pending action Ragnir |
 | /ragnir annulla | Annulla una pending action Ragnir |
 
+### Comandi Raven principali
+
+| Comando | Descrizione |
+|---|---|
+| /raven status | Stato Raven, provider e monitor attivi |
+| /breach `<email>` | Breach check email rapido |
+| /raven email `<email>` | Breach e menzioni passive per email |
+| /raven password CONFERMO `<password>` | Check password HIBP con k-anonymity e conferma esplicita |
+| /raven username `<username>` | Ricerca passiva di uno username |
+| /raven domain `<dominio>` | Breach organizzativi, menzioni e IOC enrichment |
+| /raven persona `<nome>` | OSINT passivo su persona, senza attribuzione automatica |
+| /raven azienda `<nome>` | OSINT passivo su azienda |
+| /raven ioc `<indicatore>` | Lookup di IP, dominio o hash sui provider compatibili |
+| /raven monitor add `<tipo>` `<target>` `[ore]` | Aggiunge o riattiva un monitor |
+| /raven monitor list | Elenca i monitor attivi |
+| /raven monitor run | Forza il controllo di tutti i monitor |
+| /raven monitor remove `<tipo>` `<target>` | Disattiva un monitor |
+
 ## Esempi Rapidi
 
 ```text
 /menu
 /scriviarticolo articolo SEO WordPress per hotel
+/seo software preventivi online
+/seo cluster crm freelance, miglior crm freelance, crm prezzi
+/seo snippet tool gestione task per freelance
+/seo brief guida fatturazione elettronica forfettari
+/seo report Title: Esempio SEO Meta description: troppo corta
+/seo url https://example.com/software-preventivi-online
+/summary text operativo testo lungo da riassumere
+/summary notes breve
+/summary last
+/memoria provider fallback
+/memoria note modulo SEO
 /cmd ls -la
 /aggiornanote
 /clear
@@ -762,6 +1024,8 @@ Esempi previsti:
 
 /raven status
 /raven intel example.com
+/raven ioc 8.8.8.8
+/raven monitor list
 ```
 
 ## Workflow Cognitivi
@@ -777,7 +1041,7 @@ Raptor distingue:
 * operazioni sistema (`/cmd`)
 * sincronizzazione knowledge base (`/aggiornanote`)
 * gestione siti/repo tramite Ragnir (`/ragnir`)
-* threat intelligence su VPS separata (`/raven`)
+* threat intelligence Raven locale, con worker remoto opzionale (`/raven`)
 
 Questo permette di mantenere separati:
 
@@ -888,6 +1152,27 @@ Cloudflare Pages pubblica
 Ogni modifica genera backup lato Ragnir prima dell'applicazione. Il publish usa
 commit + push verso il remote/branch configurato.
 
+#### Modifica avanzata e patch proposta
+
+Nel flusso Telegram di modifica avanzata Raptor separa intenzionalmente
+pianificazione, patch e applicazione:
+
+* la preview LLM e il bottone `Prompt esterno` producono solo piano/JSON
+  conservativo, non contenuti applicabili
+* `Genera patch proposta` chiede all'LLM solo una sostituzione strutturata
+  `path`, `old_text`, `new_text`, `reason`
+* Raptor verifica che `old_text` esista esattamente e una sola volta nel file
+  reale analizzato
+* Raptor applica la sostituzione in memoria e genera la unified diff con
+  `difflib`, senza far calcolare hunk o numeri di riga all'LLM
+* Ragnir esegue `repo_check_patch` sulla diff proposta prima di creare il
+  pending `advanced_patch`
+* la diff viene sempre mostrata in preview; apply, commit e push richiedono
+  conferma esplicita
+
+Raptor non applica mai piani descrittivi, JSON o testo libero come patch:
+il JSON dell'LLM serve solo a costruire una diff deterministica lato Raptor.
+
 ### Safe edit enforcement
 
 La sicurezza dell'editing si basa su whitelist e blocchi espliciti:
@@ -908,8 +1193,7 @@ Per questo la roadmap prevede:
 
 * controllo qualità sulla preview
 * warning se il diff sembra troppo piccolo rispetto alla richiesta
-* `edit-section` per modificare sezioni come footer/header/hero
-* `diff-last` e `rollback-last`
+* preset deterministici per modifiche ripetitive, ad esempio footer/privacy
 * full-file edit solo in modalità controllata
 
 
@@ -998,6 +1282,8 @@ Supporta:
 * ricerca testuale e semantica
 * sintesi rapida
 * invio email
+* programmazione persistente con SQLite
+* due proposte rapide intelligenti e data/ora in linguaggio naturale
 * risposta a email recenti
 * rubrica contatti locale
 
@@ -1028,7 +1314,127 @@ Oggetto: Riunione
 Messaggio:
 Ci sentiamo domani
 
-[✅ Invia] [✏️ Modifica] [❌ Annulla]
+[⚡ Invia ora]
+[🕘 Prima fascia utile]
+[✨ Momento migliore]
+[🗓 Personalizza data e ora]
+[✏️ Modifica] [❌ Annulla]
+```
+
+La scelta non esegue ancora l'azione: Raptor mostra sempre una seconda
+conferma con destinatario, oggetto e momento esatto di consegna. Solo
+`✅ Conferma` invia subito oppure salva il messaggio nella coda persistente.
+
+La programmazione personalizzata comprende, tra le altre, queste forme:
+
+```text
+Invia ora
+Mandala domani alle 10
+Mandala domani mattina
+Mandala venerdì pomeriggio
+Mandala il 18/08 alle 14:30
+Mandala nel momento migliore
+```
+
+Le fasce generiche vengono tradotte in un orario preciso e spiegate nella
+conferma. Le proposte intelligenti usano `Europe/Rome`, privilegiano orari
+lavorativi ed evitano il fine settimana. Lo scheduler continua a funzionare
+dopo un riavvio e usa lo stesso servizio SMTP Aruba dell'invio immediato.
+
+La tabella `scheduled_emails` include già `campaign_id`, metadati, stati,
+tentativi e invio a blocchi. È quindi pronta per deduplicazione, rate limiting
+e campagne multi-destinatario senza introdurre Brevo o Sendinblue nel core.
+
+### Centro Email e campagne
+
+Il comando `/campaign` (alias `/campagne` e `/mailcenter`) apre una dashboard
+Telegram con quattro viste:
+
+* Email
+* Campagne
+* Programmate
+* Storico
+
+Raptor accetta direttamente file `.csv`, `.json` e `.txt`. Una caption utile è:
+
+```text
+Campagna: Candidatura docenza settembre |
+Obiettivo: propormi come docente di informatica |
+Modalità: assisted
+```
+
+Il parser deriva dalla logica collaudata di GV Mail Sender e riconosce alias
+italiani e inglesi per nome, cognome, email, azienda, settore, sito, città,
+ruolo, corsi, note, oggetto e testi personalizzati. Gestisce CSV con virgola o
+punto e virgola, UTF-8/Windows-1252, `mailto:`, `Nome <email>`, liste semplici
+e colonne LeadRocks. Gli errori di una riga non bloccano le altre.
+
+Il workflow è sempre separato in fasi persistenti:
+
+```text
+import → deduplicazione/soppressioni → generazione → quality control
+       → salvataggio immutabile → approvazione → scheduling → Aruba SMTP
+```
+
+Prima dell'approvazione non viene creato alcun invio. I messaggi generati sono
+salvati in `email_messages` e non vengono rigenerati dal worker. I controlli
+bloccano indirizzi non validi, oggetti o testi mancanti, placeholder irrisolti,
+lunghezze anomale e saluti con un nome incoerente.
+
+Le modalità disponibili sono:
+
+* `STRICT`: revisione e approvazione di ogni email, poi conferma campagna
+* `ASSISTED`: una conferma della campagna, quindi gestione autonoma degli orari
+* `AUTONOMOUS`: attivazione esplicita iniziale, poi applicazione delle regole
+
+`ASSISTED` è il default. Anche `AUTONOMOUS` richiede un'attivazione esplicita:
+un CSV o un comando ambiguo non può avviare invii multipli.
+
+Le regole sono modificabili dal pulsante `⚙️ Regole campagna`:
+
+```text
+max_per_hour: 5, max_per_day: 25, orari: 9-17,
+pausa: 8-16, giorni: lun-ven, modalità: assisted
+```
+
+La distribuzione usa pause variabili ma riproducibili, rispetta giorni e orari
+consentiti e limita sia la singola ora sia la giornata. Dopo errori SMTP
+consecutivi la campagna viene messa automaticamente in pausa. I follow-up a
+5 giorni sono opzionali, cancellabili e programmati soltanto dopo conferma.
+Raptor assegna un `Message-ID` agli invii e controlla periodicamente via IMAP:
+quando rileva una risposta dello stesso mittente con riferimento esatto al
+thread, annulla il relativo follow-up. Non usa semplici somiglianze dell'oggetto,
+così una vecchia email non può cancellare per errore un invio futuro.
+
+Comandi naturali supportati:
+
+```text
+Che email devo ancora inviare?
+Mostrami quelle programmate per domani.
+Annulla la mail a Mario.
+Posticipa tutta la campagna a lunedì.
+Quali aziende abbiamo già contattato?
+Rimanda solo quelle fallite.
+Non scrivere più a nome@example.com.
+```
+
+Le operazioni che modificano coda o soppressioni chiedono una conferma
+esplicita. L'analisi opzionale dei siti usa soltanto URL già presenti nei dati,
+blocca reti private e redirect non sicuri e non cerca nuove aziende.
+
+La ricerca lead è disponibile tramite `/outreach` o linguaggio naturale.
+Raptor crea il progetto e richiede approvazione; Ragnir scopre e analizza i
+siti, mentre Raptor deduplica, assegna score, conserva CRM e crea la campagna.
+I job di ricerca vengono recuperati dopo un riavvio e ritentati fino al limite
+configurato. Nessuna email viene inviata dalla fase outreach: preparazione,
+anteprima e conferma finale restano nel Centro email. Brevo, Sendinblue e
+SendFox non fanno parte del core; il trasporto resta Aruba SMTP dietro
+l'interfaccia `EmailService`.
+
+```env
+OUTREACH_RESEARCH_ENABLED=1
+OUTREACH_RESEARCH_TIMEOUT_SECONDS=600
+OUTREACH_RESEARCH_MAX_ATTEMPTS=3
 ```
 
 Stati temporanei principali:
@@ -1039,6 +1445,8 @@ Stati temporanei principali:
 * `waiting_body`
 * `waiting_edit`
 * `preview_ready`
+* `waiting_schedule_custom`
+* `waiting_delivery_confirmation`
 
 ### Firma SMTP
 
@@ -1985,6 +2393,9 @@ Il check giornaliero email interno al bot usa invece `JobQueue` di
 | modules/calendar/ | Eventi calendario locale/Google        |
 | modules/notes/    | Servizi note Obsidian                  |
 | modules/security/ | Audit security controllati e report    |
+| modules/raven/   | Breach check, IOC enrichment e monitor passivi |
+| modules/social/  | Account Meta, pubblicazione e coda social |
+| modules/newsletter/ | Liste contatti e run newsletter       |
 | modules/web/      | Ricerca web con fonti                  |
 | state/            | Snapshot operativo attuale             |
 | privatebrain/     | Vault Markdown privato                 |
@@ -2131,6 +2542,12 @@ La modalita `/operatore` non viene disattivata da `annulla`; si spegne solo con
 
 ### Completato
 
+* Raven — servizio locale integrato con fallback worker HTTP remoto
+* Raven — HIBP email/password, catalogo domini e indici dark-web passivi
+* Raven — ThreatFox, URLhaus e MalwareBazaar read-only
+* Raven — monitor SQLite, digest delle variazioni e alert Telegram
+* Social publishing — Facebook e Instagram, scheduling e notifiche Telegram
+* Newsletter — liste, import CSV, preview e invio tramite coda email
 * v0.5.8 — LLM edit leggero
 * v0.5.9 — `sites.py` e snellimento operativo
 * v0.6.0 — bottoni Telegram per pending Ragnir
@@ -2150,6 +2567,7 @@ La modalita `/operatore` non viene disattivata da `annulla`; si spegne solo con
 * v0.7.0.3 — sezione Ragnir `⚡ Gestione sito`
 * v0.7.0.4 — sezione Ragnir `🧭 Ultima attività`
 * v0.7.0.5 — sezione Ragnir `🛠️ Operazioni tecniche`
+* v0.7.0.6 — advanced patch via JSON replace e diff deterministica
 
 ### In evoluzione
 
@@ -2157,12 +2575,10 @@ La modalita `/operatore` non viene disattivata da `annulla`; si spegne solo con
 * v0.7.3 — aggiornamento help/usage interno
 * v0.7.4 — qualità LLM edit e rilevamento modifiche incomplete
 * v0.7.5 — test negativi sicurezza e regressione safe edit
-* v0.8.x — `edit-section`, `diff-last`, `rollback-last`, full-file edit controllato e multi-site reale
+* v0.8.x — preset deterministici, full-file edit controllato e multi-site reale
 
 ### Funzionalità in valutazione
 
-* Social publishing
-* Newsletter
 * Web UI locale per configurazione API e moduli
 * Gestione plugin Raptor/Ragnir installabili
 * Multi-site reale con più domini e repo configurati
@@ -2172,6 +2588,9 @@ La modalita `/operatore` non viene disattivata da `annulla`; si spegne solo con
 ## AI
 
 * Groq
+* Cerebras
+* OpenRouter
+* NVIDIA NIM
 * Ollama
 * CrewAI
 * faster-whisper
